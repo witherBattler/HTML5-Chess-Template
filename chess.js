@@ -43,14 +43,15 @@ class ChessPiece {
         this.renderX = renderLocation.x
         this.renderY = renderLocation.y
         this.color = color
+        this.chessboard = chessboard
     }
-    canMoveTo(chessBoard) {
+    canMoveTo() {
         throw new Error("Not implemented")
     }
-    getPossibleMoves(chessBoard) {
+    getPossibleMoves() {
         throw new Error("Not implemented")
     }
-    render(chessBoard) {
+    render() {
         throw new Error("Not implemented")
     }
     get isWhite() {
@@ -58,6 +59,16 @@ class ChessPiece {
     }
     get isBlack() { 
         return this.color == "black"
+    }
+    compulseMove(x, y) {
+        this.x = x
+        this.y = y
+        let renderLocation = this.chessboard.getCellRect(x, y)
+        this.renderX = renderLocation.x
+        this.renderY = renderLocation.y
+    }
+    isChessPiece(chessPiece) {
+        return this.x == chessPiece.x && this.y == chessPiece.y
     }
 }
 
@@ -76,12 +87,17 @@ class Chessboard {
         this.renderingContext = this.canvasElement.getContext("2d")
         this.config = {
             width: 600,
-            cellColor1: "#EEEED2",
-            cellColor2: "#769656",
+            cellColor1: "#DEDCCF",
+            cellColor2: "#379B65",
             chessPieceColor1: "#EEEED2",
             chessPieceColor2: "#51504D",
+            possibleMoveFillColor: "rgba(0, 0, 0, 0.1)",
+            possibleMoveStrokeColor: "transparent",
+            possibleMoveLineWidth: 2,
             ...config
         }
+        this.turn = "white"
+        this.client = "both"
         this.preRender = function() {}
         this.postRender = function() {}
         this.sharpness = 5
@@ -89,12 +105,18 @@ class Chessboard {
         this.map = mapAndChessPieces.map
         this.chessPieces = mapAndChessPieces.chessPieces
         this.currentlyHoldingChessPiece = null
-        
+        this.currentlyLifting = false
+
         this.canvasElement.addEventListener("mousedown", (event) => {
-            let cell = this.getCellByPoint(event.clientX, event.clientY)
+            let cell = this.getCellByPoint(this.mouseX, this.mouseY)
             let chessPiece = this.map[cell.y][cell.x]
             let cellSize = this.cellSize
             if(chessPiece) {
+                if(chessPiece.color != this.turn || clientCanOperateColor(chessPiece.color)) {
+                    this.currentlyHoldingChessPiece = null
+                    return
+                }
+                this.currentlyLifting = true
                 this.currentlyHoldingChessPiece = chessPiece
                 this.currentlyHoldingChessPiece.renderX = this.mouseX - cellSize / 2
                 this.currentlyHoldingChessPiece.renderY = this.mouseY - cellSize / 2    
@@ -104,24 +126,51 @@ class Chessboard {
         })
         this.canvasElement.addEventListener("mousemove", (event) => {
             let cellSize = this.cellSize
-            if(this.currentlyHoldingChessPiece) {
+            if(this.currentlyHoldingChessPiece && this.currentlyLifting) {
                 this.currentlyHoldingChessPiece.renderX = this.mouseX - cellSize / 2
                 this.currentlyHoldingChessPiece.renderY = this.mouseY - cellSize / 2
             }
         })
         this.canvasElement.addEventListener("mouseup", (event) => {
-            let chessPiece = this.currentlyHoldingChessPiece
-            if(chessPiece) {
-                let renderLocation = this.getRenderLocationByCell(chessPiece.x, chessPiece.y)
-                chessPiece.renderX = renderLocation.x
-                chessPiece.renderY = renderLocation.y
-                this.currentlyHoldingChessPiece = null
+            let cellSize = this.cellSize
+
+            this.currentlyLifting = false
+            if(this.currentlyHoldingChessPiece) {
+                let cell = this.getCellByPoint(this.mouseX, this.mouseY)
+                let possibleMoves = this.currentlyHoldingChessPiece.getPossibleMoves(this)
+                let cellInPossibleMoves = false
+                for(let i = 0; i != possibleMoves.length; i++) {
+                    if(possibleMoves[i].x == cell.x && possibleMoves[i].y == cell.y) {
+                        cellInPossibleMoves = true
+                    }
+                }
+                if(cellInPossibleMoves) {
+                    for(let i = 0; i != this.chessPieces.length; i++) {
+                        if(this.chessPieces[i].x == cell.x && this.chessPieces[i].y == cell.y) {
+                            this.chessPieces.splice(i, 1)
+                            break
+                        }
+                    }
+                    this.moveCell(
+                        this.currentlyHoldingChessPiece.x,
+                        this.currentlyHoldingChessPiece.y,
+                        cell.x,
+                        cell.y
+                    )
+                    this.currentlyHoldingChessPiece.compulseMove(cell.x, cell.y)
+                    this.currentlyHoldingChessPiece = null
+                    this.turn = oppositeColor(this.turn)
+                } else {
+                    this.currentlyHoldingChessPiece.renderX = this.currentlyHoldingChessPiece.x * cellSize
+                    this.currentlyHoldingChessPiece.renderY = this.currentlyHoldingChessPiece.y * cellSize
+                }
             }
+            
         })
     }
     draw() {
         let cellSize = this.cellSize
-        
+
         for(let x = 0; x != 8; x++) {
             for(let y = 0; y != 8; y++) {
                 let color = (x + y) % 2 == 0
@@ -129,12 +178,46 @@ class Chessboard {
                     : this.config.cellColor2
                 this.renderingContext.fillStyle = color
                 this.renderingContext.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
-
             }
         }
 
-        for(let i = 0; i != this.chessPieces.length; i++) {
-            this.chessPieces[i].render(this, cellSize, cellSize)
+        if(this.currentlyHoldingChessPiece) {
+            let possibleMoves = this.currentlyHoldingChessPiece.getPossibleMoves()
+            
+            for(let i = 0; i != this.chessPieces.length; i++) {
+                if(!this.chessPieces[i].isChessPiece(this.currentlyHoldingChessPiece)) {
+                    this.chessPieces[i].render(cellSize, cellSize)
+                }
+            }
+            for(let i = 0; i != possibleMoves.length; i++) {
+                let move = possibleMoves[i]
+                let center = this.getCellCenter(move.x, move.y)
+                if(!move.kill) {
+                    // Circle
+                    this.renderingContext.fillStyle = this.config.possibleMoveFillColor
+                    this.renderingContext.strokeStyle = this.config.possibleMoveStrokeColor
+                    this.renderingContext.lineWidth = this.config.possibleMoveLineWidth
+                    this.renderingContext.beginPath()
+                    this.renderingContext.arc(center.x, center.y, cellSize / 6, 0, 2 * Math.PI)
+                    this.renderingContext.fill()
+                    this.renderingContext.stroke()
+                    this.renderingContext.closePath()
+                } else {
+                    // Ring
+                    this.renderingContext.strokeStyle = this.config.possibleMoveFillColor
+                    this.renderingContext.lineWidth = 8
+                    this.renderingContext.fillStyle = "transparent"
+                    this.renderingContext.beginPath()
+                    this.renderingContext.arc(center.x, center.y, cellSize / 2 - 4, 0, 2 * Math.PI)
+                    this.renderingContext.stroke()
+                    this.renderingContext.closePath()
+                }
+            }
+            this.currentlyHoldingChessPiece.render(cellSize, cellSize)
+        } else {
+            for(let i = 0; i != this.chessPieces.length; i++) {
+                this.chessPieces[i].render(cellSize, cellSize)
+            }
         }
     }
     get cellSize() {
@@ -200,75 +283,98 @@ class Chessboard {
             height: cellSize
         }
     }
+    exchangeMapCells(x1, y1, x2, y2) {
+        let temp = this.map[y1][x1]
+        this.map[y1][x1] = this.map[y2][x2]
+        this.map[y2][x2] = temp
+    }
+    moveCell(x1, y1, x2, y2) {
+        // move cell, leaving null in the old location
+        this.map[y2][x2] = this.map[y1][x1]
+        this.map[y1][x1] = null
+    }
+    getMapCell(x, y) {
+        return this.map[y][x]
+    }
+    isEmptyCell(x, y) {
+        return this.map[y][x] == null
+    }
 }
 
 class PawnChessPiece extends ChessPiece {
     constructor(x, y, color, chessboard) {
         super(x, y, color, chessboard)
     }
-    canMoveTo(chessboard, x, y) {
-        let firstPosition =
-            calculateMovement(this.x, this.y, "forward")
-        let firstPositionIsBlocked =
-            chessboard.map[firstPosition.x][firstPosition.y] != null
-        if(firstPosition.x == x && firstPosition.y == y && !firstPositionIsBlocked) {
-            return true
-        }
-        let secondPosition =
-            calculateMovement(this.x, this.y, "forward forward")
-        let secondPositionIsBlocked =
-            chessboard.map[secondPosition.x][secondPosition.y] != null
-        if(secondPosition.x == x && secondPosition.y == y && !secondPositionIsBlocked) {
-            return true
-        }
-        return false
-    }
-    render(chessboard, width, height) {
+    render(width, height) {
         basicChessAssets[this.color].pawn.drawImage(
-            chessboard.renderingContext,
+            this.chessboard.renderingContext,
             this.renderX,
             this.renderY,
             width,
             height
         )
     }
-    getPossibleMoves(chessboard) {
-        let firstPosition =
-            calculateMovement(this.x, this.y, "forward")
-        let firstPositionIsBlocked =
-            chessboard.map[firstPosition.x][firstPosition.y] != null
-        if(!firstPositionIsBlocked) {
-            return [firstPosition]
+    getPossibleMoves() {
+        let moves = []
+
+        // Attacking
+        let leftFrontCell = calculateMovement(this.x, this.y, "left forward", this.color)
+        let leftFrontMapCell = chessboard.getMapCell(leftFrontCell.x, leftFrontCell.y)
+        if(leftFrontMapCell) {
+            if(leftFrontMapCell.color != this.color) {
+                leftFrontCell.kill = true
+                moves.push(leftFrontCell)
+            }
         }
-        let secondPosition =
-            calculateMovement(this.x, this.y, "forward forward")
-        let secondPositionIsBlocked =
-            chessboard.map[secondPosition.x][secondPosition.y] != null
-        if(!secondPositionIsBlocked) {
-            return [secondPosition]
+        let rightFrontCell = calculateMovement(this.x, this.y, "right forward", this.color)
+        let rightFrontMapCell = chessboard.getMapCell(rightFrontCell.x, rightFrontCell.y)
+        
+        if(rightFrontMapCell) {
+            if(rightFrontMapCell.color != this.color) {
+                rightFrontCell.kill = true
+                moves.push(rightFrontCell)
+            }
         }
-        return []
+
+        // Moving forward
+        let rightInFront = calculateMovement(this.x, this.y, "forward", this.color)
+        if(chessboard.getMapCell(rightInFront.x, rightInFront.y) == null) {
+            moves.push(rightInFront)
+        } else {
+            return moves
+        }
+        if(getChessboardY(this.y, this.color) != 1) {
+            return moves
+        }
+        let twoInFront = calculateMovement(this.x, this.y, "forward forward", this.color)
+        if(chessboard.getMapCell(twoInFront.x, twoInFront.y) == null) {
+            moves.push(twoInFront)
+        } else {
+            return moves
+        }
+        return moves
     }
 }
 
-function calculateMovement(x, y, opetions, color) {
+function calculateMovement(x, y, operations, color) {
     let parsedOperations = operations.split(" ")
-    let modifier = color == "white" ? 1 : -1
+    let modifier = color == "black" ? 1 : -1
     for(let i = 0; i != parsedOperations.length; i++) {
         let operation = parsedOperations[i]
         switch(operation) {
-            case "up":
-                y *= modifier
-                break
-            case "down":
-                y *= -modifier
+            case "forward":
+                y += modifier
                 break
             case "left":
-                x *= -modifier
+                x -= modifier
                 break
             case "right":
-                x *= modifier
+                x += modifier
                 break
+            case "backward":
+                y -= modifier
+                break
+            
         }
     }
     return {
@@ -282,6 +388,13 @@ function getBasicChessPieces(chessboard) {
     let chessPieces = []
     for(let i = 0; i != 8; i++) {
         map[i] = new Array(8).fill(null, 0, 7)
+        if(i == 1) {
+            for(let j = 0; j != 8; j++) {
+                let chessPiece = new PawnChessPiece(j, i, "black", chessboard)
+                map[i][j] = chessPiece
+                chessPieces.push(chessPiece)
+            }
+        }
         if(i == 6) {
             for(let j = 0; j != 8; j++) {
                 let chessPiece = new PawnChessPiece(j, i, "white", chessboard)
@@ -294,4 +407,22 @@ function getBasicChessPieces(chessboard) {
         map,
         chessPieces
     }
+}
+
+function oppositeColor(color) {
+    return color == "white" ? "black" : "white"
+}
+
+function getChessboardY(y, color) {
+    return color == "black" ? y : 7 - y
+}
+
+function clientCanOperateColor(client, color) {
+    if(client == "both") {
+        return true
+    }
+    if(client == "none") {
+        return false
+    }
+    return client == color
 }
