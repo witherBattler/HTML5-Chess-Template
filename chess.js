@@ -45,9 +45,6 @@ class ChessPiece {
         this.color = color
         this.chessboard = chessboard
     }
-    canMoveTo() {
-        throw new Error("Not implemented")
-    }
     getPossibleMoves() {
         throw new Error("Not implemented")
     }
@@ -294,7 +291,11 @@ class Chessboard {
         this.map[y1][x1] = null
     }
     getMapCell(x, y) {
-        return this.map[y][x]
+        if(this.map[y] && this.map[y][x]) {
+            return this.map[y][x]
+        } else {
+            return null
+        }
     }
     isEmptyCell(x, y) {
         return this.map[y][x] == null
@@ -355,6 +356,33 @@ class PawnChessPiece extends ChessPiece {
         return moves
     }
 }
+class KnightChessPiece extends ChessPiece {
+    constructor(x, y, color, chessboard) {
+        super(x, y, color, chessboard)
+    }
+    getPossibleMoves() {
+        let moves = validatePossibleMoves([
+            calculateMovement(this.x, this.y, "left left forward"),
+            calculateMovement(this.x, this.y, "right right forward"),
+            calculateMovement(this.x, this.y, "forward forward left"),
+            calculateMovement(this.x, this.y, "forward forward right"),
+            calculateMovement(this.x, this.y, "left left backward"),
+            calculateMovement(this.x, this.y, "right right backward"),
+            calculateMovement(this.x, this.y, "backward backward left"),
+            calculateMovement(this.x, this.y, "backward backward right")
+        ], this.color, this.chessboard)
+        return moves
+    }
+    render() {
+        basicChessAssets[this.color].knight.drawImage(
+            this.chessboard.renderingContext,
+            this.renderX,
+            this.renderY,
+            this.chessboard.cellSize,
+            this.chessboard.cellSize
+        )
+    }
+}
 
 function calculateMovement(x, y, operations, color) {
     let parsedOperations = operations.split(" ")
@@ -395,12 +423,42 @@ function getBasicChessPieces(chessboard) {
                 chessPieces.push(chessPiece)
             }
         }
+        if(i == 0) {
+            let firstKnight = new KnightChessPiece(1, i, "black", chessboard)
+            let secondKnight = new KnightChessPiece(6, i, "black", chessboard)
+            map[i] = [
+                null,
+                firstKnight,
+                null,
+                null,
+                null,
+                null,
+                secondKnight,
+                null
+            ]
+            chessPieces.push(firstKnight, secondKnight)
+        }
         if(i == 6) {
             for(let j = 0; j != 8; j++) {
                 let chessPiece = new PawnChessPiece(j, i, "white", chessboard)
                 map[i][j] = chessPiece
                 chessPieces.push(chessPiece)
             }
+        }
+        if(i == 7) {
+            let firstKnight = new KnightChessPiece(1, i, "white", chessboard)
+            let secondKnight = new KnightChessPiece(6, i, "white", chessboard)
+            map[i] = [
+                null,
+                firstKnight,
+                null,
+                null,
+                null,
+                null,
+                secondKnight,
+                null
+            ]
+            chessPieces.push(firstKnight, secondKnight)
         }
     }
     return {
@@ -425,4 +483,22 @@ function clientCanOperateColor(client, color) {
         return false
     }
     return client == color
+}
+
+function validatePossibleMoves(possibleMoves, color, chessboard) {
+    let validMoves = []
+    for(let i = 0; i < possibleMoves.length; i++) {
+        let move = possibleMoves[i]
+        let cell = chessboard.getMapCell(move.x, move.y)
+        if(cell == null) {
+            validMoves.push(move)
+        } else {
+            if(cell.color == oppositeColor(color)) {
+                move.kill = true
+                validMoves.push(move)
+            }
+    
+        }
+    }
+    return validMoves
 }
