@@ -383,6 +383,135 @@ class KnightChessPiece extends ChessPiece {
         )
     }
 }
+class RookChessPiece extends ChessPiece {
+    constructor(x, y, color, chessboard) {
+        super(x, y, color, chessboard)
+    }
+    getPossibleMoves() {
+        let moves = [
+            ...getMovementsUntilImpossible(this.x, this.y, 1, 0, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 0, 1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, -1, 0, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 0, -1, this.color, this.chessboard)
+        ]
+        return moves
+    }
+    render() {
+        basicChessAssets[this.color].rook.drawImage(
+            this.chessboard.renderingContext,
+            this.renderX,
+            this.renderY,
+            this.chessboard.cellSize,
+            this.chessboard.cellSize
+        )
+    }
+}
+class BishopChessPiece extends ChessPiece {
+    constructor(x, y, color, chessboard) {
+        super(x, y, color, chessboard)
+    }
+    getPossibleMoves() {
+        let moves = [
+            ...getMovementsUntilImpossible(this.x, this.y, 1, 1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, -1, 1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 1, -1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, -1, -1, this.color, this.chessboard)
+        ]
+        return moves
+    }
+    render() {
+        basicChessAssets[this.color].bishop.drawImage(
+            this.chessboard.renderingContext,
+            this.renderX,
+            this.renderY,
+            this.chessboard.cellSize,
+            this.chessboard.cellSize
+        )
+    }
+}
+class QueenChessPiece extends ChessPiece {
+    constructor(x, y, color, chessboard) {
+        super(x, y, color, chessboard)
+    }
+    getPossibleMoves() {
+        let moves = [
+            ...getMovementsUntilImpossible(this.x, this.y, 1, 0, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 0, 1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, -1, 0, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 0, -1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 1, 1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, -1, 1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, 1, -1, this.color, this.chessboard),
+            ...getMovementsUntilImpossible(this.x, this.y, -1, -1, this.color, this.chessboard)
+        ]
+        return moves
+    }
+    render() {
+        basicChessAssets[this.color].queen.drawImage(
+            this.chessboard.renderingContext,
+            this.renderX,
+            this.renderY,
+            this.chessboard.cellSize,
+            this.chessboard.cellSize
+        )
+    }
+}
+
+class KingChessPiece extends ChessPiece {
+    constructor(x, y, color, chessboard) {
+        super(x, y, color, chessboard)
+    }
+    getPossibleMoves() {
+        let moves = [
+            calculateMovement(this.x, this.y, "left", this.color),
+            calculateMovement(this.x, this.y, "right", this.color),
+            calculateMovement(this.x, this.y, "forward", this.color),
+            calculateMovement(this.x, this.y, "backward", this.color),
+            calculateMovement(this.x, this.y, "left forward", this.color),
+            calculateMovement(this.x, this.y, "right forward", this.color),
+            calculateMovement(this.x, this.y, "left backward", this.color),
+            calculateMovement(this.x, this.y, "right backward", this.color)
+        ]
+        return moves
+    }
+    render() {
+        basicChessAssets[this.color].king.drawImage(
+            this.chessboard.renderingContext,
+            this.renderX,
+            this.renderY,
+            this.chessboard.cellSize,
+            this.chessboard.cellSize
+        )
+    }
+}
+
+function getMovementsUntilImpossible(x, y, xDelta, yDelta, color, chessboard, autoSwitchDeltas = true) {
+    let movements = []
+    if(this.color == "black" && autoSwitchDeltas) {
+        xDelta = -xDelta
+        yDelta = -yDelta
+    }
+    let currentX = x + xDelta
+    let currentY = y + yDelta
+    while(true) {
+        if(currentX < 0 || currentX > 7 || currentY < 0 || currentY > 7) {
+            break
+        }
+        let cell = chessboard.getMapCell(currentX, currentY)
+        if(cell == null) {
+            movements.push({x: currentX, y: currentY})
+        } else if(cell.color != color) {
+            movements.push({x: currentX, y: currentY, kill: true})
+            break
+        } else {
+            break
+        }
+        currentX += xDelta
+        currentY += yDelta
+        console.log(currentX, currentY, possibleMoveIsValid({x: currentX, y: currentY}, color, chessboard))
+    }
+    return movements
+}
 
 function calculateMovement(x, y, operations, color) {
     let parsedOperations = operations.split(" ")
@@ -426,17 +555,23 @@ function getBasicChessPieces(chessboard) {
         if(i == 0) {
             let firstKnight = new KnightChessPiece(1, i, "black", chessboard)
             let secondKnight = new KnightChessPiece(6, i, "black", chessboard)
+            let firstRook = new RookChessPiece(0, i, "black", chessboard)
+            let secondRook = new RookChessPiece(7, i, "black", chessboard)
+            let firstBishop = new BishopChessPiece(2, i, "black", chessboard)
+            let secondBishop = new BishopChessPiece(5, i, "black", chessboard)
+            let firstQueen = new QueenChessPiece(3, i, "black", chessboard)
+            let firstKing = new KingChessPiece(4, i, "black", chessboard)
             map[i] = [
-                null,
+                firstRook,
                 firstKnight,
-                null,
-                null,
-                null,
-                null,
+                firstBishop,
+                firstQueen,
+                firstKing,
+                secondBishop,
                 secondKnight,
-                null
+                secondRook
             ]
-            chessPieces.push(firstKnight, secondKnight)
+            chessPieces.push(firstKnight, secondKnight, firstRook, secondRook, firstBishop, secondBishop, firstQueen, firstKing)
         }
         if(i == 6) {
             for(let j = 0; j != 8; j++) {
@@ -448,17 +583,23 @@ function getBasicChessPieces(chessboard) {
         if(i == 7) {
             let firstKnight = new KnightChessPiece(1, i, "white", chessboard)
             let secondKnight = new KnightChessPiece(6, i, "white", chessboard)
+            let firstRook = new RookChessPiece(0, i, "white", chessboard)
+            let secondRook = new RookChessPiece(7, i, "white", chessboard)
+            let firstBishop = new BishopChessPiece(2, i, "white", chessboard)
+            let secondBishop = new BishopChessPiece(5, i, "white", chessboard)
+            let firstQueen = new QueenChessPiece(3, i, "white", chessboard)
+            let firstKing = new KingChessPiece(4, i, "white", chessboard)
             map[i] = [
-                null,
+                firstRook,
                 firstKnight,
-                null,
-                null,
-                null,
-                null,
+                firstBishop,
+                firstQueen,
+                firstKing,
+                secondBishop,
                 secondKnight,
-                null
+                secondRook
             ]
-            chessPieces.push(firstKnight, secondKnight)
+            chessPieces.push(firstKnight, secondKnight, firstRook, secondRook, firstBishop, secondBishop, firstQueen, firstKing)
         }
     }
     return {
@@ -497,8 +638,19 @@ function validatePossibleMoves(possibleMoves, color, chessboard) {
                 move.kill = true
                 validMoves.push(move)
             }
-    
         }
     }
     return validMoves
+}
+
+function possibleMoveIsValid(move, color, chessboard) {
+    if(move.x < 0 || move.x > 7 || move.y < 0 || move.y > 7) {
+        return false
+    }
+    
+    let cell = chessboard.getMapCell(move.x, move.y)
+    if(cell == null || cell.color == oppositeColor(color)) {
+        return true
+    }
+    return false
 }
