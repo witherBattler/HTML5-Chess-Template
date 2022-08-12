@@ -1,4 +1,4 @@
 let canvas = document.getElementById("canvas")
-let chessboard = new Chessboard(canvas)
+let asdfasdf = new Chessboard(canvas)
 
-chessboard.startRendering()
+asdfasdf.startRendering()

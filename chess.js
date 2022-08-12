@@ -44,6 +44,7 @@ class ChessPiece {
         this.renderY = renderLocation.y
         this.color = color
         this.chessboard = chessboard
+        this.possibleMoves = []
     }
     getPossibleMoves() {
         throw new Error("Not implemented")
@@ -66,6 +67,9 @@ class ChessPiece {
     }
     isChessPiece(chessPiece) {
         return this.x == chessPiece.x && this.y == chessPiece.y
+    }
+    reloadPossibleMoves() {
+        this.possibleMoves = this.getPossibleMoves()
     }
 }
 
@@ -101,8 +105,11 @@ class Chessboard {
         let mapAndChessPieces = getBasicChessPieces(this)
         this.map = mapAndChessPieces.map
         this.chessPieces = mapAndChessPieces.chessPieces
+        this.reloadPossibleMoves()
         this.currentlyHoldingChessPiece = null
         this.currentlyLifting = false
+        this.flipped = false
+
 
         this.canvasElement.addEventListener("mousedown", (event) => {
             let cell = this.getCellByPoint(this.mouseX, this.mouseY)
@@ -134,7 +141,7 @@ class Chessboard {
             this.currentlyLifting = false
             if(this.currentlyHoldingChessPiece) {
                 let cell = this.getCellByPoint(this.mouseX, this.mouseY)
-                let possibleMoves = this.currentlyHoldingChessPiece.getPossibleMoves(this)
+                let possibleMoves = this.currentlyHoldingChessPiece.possibleMoves
                 let cellInPossibleMoves = false
                 for(let i = 0; i != possibleMoves.length; i++) {
                     if(possibleMoves[i].x == cell.x && possibleMoves[i].y == cell.y) {
@@ -157,6 +164,7 @@ class Chessboard {
                     this.currentlyHoldingChessPiece.compulseMove(cell.x, cell.y)
                     this.currentlyHoldingChessPiece = null
                     this.turn = oppositeColor(this.turn)
+                    this.reloadPossibleMoves()
                 } else {
                     this.currentlyHoldingChessPiece.renderX = this.currentlyHoldingChessPiece.x * cellSize
                     this.currentlyHoldingChessPiece.renderY = this.currentlyHoldingChessPiece.y * cellSize
@@ -179,7 +187,7 @@ class Chessboard {
         }
 
         if(this.currentlyHoldingChessPiece) {
-            let possibleMoves = this.currentlyHoldingChessPiece.getPossibleMoves()
+            let possibleMoves = this.currentlyHoldingChessPiece.possibleMoves
             
             for(let i = 0; i != this.chessPieces.length; i++) {
                 if(!this.chessPieces[i].isChessPiece(this.currentlyHoldingChessPiece)) {
@@ -300,6 +308,11 @@ class Chessboard {
     isEmptyCell(x, y) {
         return this.map[y][x] == null
     }
+    reloadPossibleMoves() {
+        for(let i = 0; i != this.chessPieces.length; i++) {
+            this.chessPieces[i].reloadPossibleMoves()
+        }
+    }
 }
 
 class PawnChessPiece extends ChessPiece {
@@ -320,7 +333,7 @@ class PawnChessPiece extends ChessPiece {
 
         // Attacking
         let leftFrontCell = calculateMovement(this.x, this.y, "left forward", this.color)
-        let leftFrontMapCell = chessboard.getMapCell(leftFrontCell.x, leftFrontCell.y)
+        let leftFrontMapCell = this.chessboard.getMapCell(leftFrontCell.x, leftFrontCell.y)
         if(leftFrontMapCell) {
             if(leftFrontMapCell.color != this.color) {
                 leftFrontCell.kill = true
@@ -328,7 +341,7 @@ class PawnChessPiece extends ChessPiece {
             }
         }
         let rightFrontCell = calculateMovement(this.x, this.y, "right forward", this.color)
-        let rightFrontMapCell = chessboard.getMapCell(rightFrontCell.x, rightFrontCell.y)
+        let rightFrontMapCell = this.chessboard.getMapCell(rightFrontCell.x, rightFrontCell.y)
         
         if(rightFrontMapCell) {
             if(rightFrontMapCell.color != this.color) {
@@ -339,7 +352,7 @@ class PawnChessPiece extends ChessPiece {
 
         // Moving forward
         let rightInFront = calculateMovement(this.x, this.y, "forward", this.color)
-        if(chessboard.getMapCell(rightInFront.x, rightInFront.y) == null) {
+        if(this.chessboard.getMapCell(rightInFront.x, rightInFront.y) == null) {
             moves.push(rightInFront)
         } else {
             return moves
@@ -348,7 +361,7 @@ class PawnChessPiece extends ChessPiece {
             return moves
         }
         let twoInFront = calculateMovement(this.x, this.y, "forward forward", this.color)
-        if(chessboard.getMapCell(twoInFront.x, twoInFront.y) == null) {
+        if(this.chessboard.getMapCell(twoInFront.x, twoInFront.y) == null) {
             moves.push(twoInFront)
         } else {
             return moves
